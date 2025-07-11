@@ -1,0 +1,10 @@
+botorch
+gpytorch
+torch
+scipy
+gymnasium
+stable_baselines3
+numpy
+pandas
+matplotlib
+opencv-python
