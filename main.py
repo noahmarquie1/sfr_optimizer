@@ -12,9 +12,9 @@ import torch
 # Setup
 torch.set_default_dtype(torch.float32)
 torch.set_default_device("cpu")
-torch.set_num_threads(40)
-torch.set_num_interop_threads(10)
-sim_threads = 40
+torch.set_num_threads(6)
+torch.set_num_interop_threads(2)
+sim_threads = 4
 
 warnings.filterwarnings('ignore', category=UserWarning, module='openmc.material')
 warnings.filterwarnings('ignore', category=UserWarning, module='openmc.mixin')
@@ -32,13 +32,13 @@ rl_plot_manager = PlotManager(rl_plots)
 
 # Reward Function
 def get_reward(keff, peaking_factor, heating_rate):
-    w_keff = 0.4
+    w_keff = 0.45
     keff_term = w_keff * np.exp((-20 * (keff - 1.0) ** 2) if keff <= 1.0 else (-100 * (keff - 1.0) ** 2))
 
-    w_pkf = 0.35
+    w_pkf = 0.40
     pkf_term = w_pkf * np.exp(-(peaking_factor - 1) ** 2)
 
-    w_heating_rate = 0.25
+    w_heating_rate = 0.15
     heating_rate_term = w_heating_rate * (1 - np.exp(-2 * heating_rate * 1e-8))
 
     return keff_term + pkf_term + heating_rate_term, keff_term / w_keff, pkf_term / w_pkf, heating_rate_term / w_heating_rate
@@ -66,12 +66,12 @@ bo = OptimizerBO(
     mesh_dimension=[200, 200],
     num_threads=sim_threads,
     reward=get_reward,
-    num_particles=2000,
+    num_particles=5000,
 )
 
 # Helpers
 def train_bo(n_starts, epochs):
-    bo.train(bo_plot_manager, num_starts=n_starts, epochs=epochs, beta_start=2, beta_end=0.5, make_vids=True)
+    bo.train(bo_plot_manager, num_starts=n_starts, epochs=epochs, beta_start=3, beta_end=0.5, make_vids=True)
     bo_plot_manager.save("output_BO")
 
 

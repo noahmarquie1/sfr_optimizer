@@ -1,7 +1,7 @@
 # ⚛ SFR Nuclear Reactor Optimizer
 
 Bayesian Optimization and Reinforcement Learning implementations
-for uranium-based fast-reactor core optimization.
+for sodium-cooled fast reactor core assembly optimization.
 
 ---
 
@@ -20,12 +20,12 @@ for uranium-based fast-reactor core optimization.
 
 ## 🔍 Overview
 
-This repository was inspired by my work as an AI/ML Engineering Intern at Transmutex, 
+This repository is inspired by my work as an AI/ML Engineering Intern at Transmutex, 
 a Geneva-based company developing software solutions to pioneer safe, sustainable 
 transmutation-based nuclear energy. During my internship, I developed a suite of optimization 
 tools for Transmutex’s proprietary thorium-based, lead-cooled fast reactor 
-design. Note on IP: the work presented here does not contain any proprietary information or inventions
-owned by Transmutex SA. 
+design. **Note on IP:** the work presented here does not contain any proprietary information or inventions
+owned by Transmutex S.A. 
 
 Included here are two of the most effective approaches I implemented:
 

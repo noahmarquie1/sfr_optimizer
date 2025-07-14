@@ -85,34 +85,29 @@ steel_reflector.set_density('g/cm3', 7.9)  # Typical density of steel
 steel_reflector.add_element('Fe', 0.95)  # 95% iron
 steel_reflector.add_element('C', 0.05)   # 5% carbon (typical for steel)
 
+# Create helium gap material
+helium = openmc.Material(name="Helium Gap")
+helium.add_element("He", 1.0)
+helium.set_density("g/cm3", 0.0001785)  # Density at typical reactor conditions
+
+
 
 def fuel_pin(fuel_material,fuel_or,clad_or):
 # Define surfaces
     fuel_or = openmc.ZCylinder(r=fuel_or, name='Fuel OR')
     clad_or = openmc.ZCylinder(r=clad_or, name='Clad OR')
+    gap_or = openmc.ZCylinder(r=0.01, name='Gap OR')
 
     """Returns a fuel pin universe with specified fuel material."""
     fuel_cell = openmc.Cell(fill=fuel_material, region=-fuel_or)
     clad_cell = openmc.Cell(fill=clad, region=+fuel_or & -clad_or)
     sodium_cell = openmc.Cell(fill=sodium, region=+clad_or)
+    gap_cell = openmc.Cell(fill=helium, region=+gap_or & -clad_or)
 
     univ = openmc.Universe(name=f'Fuel Pin {fuel_material.name}')
-    univ.add_cells([fuel_cell, clad_cell, sodium_cell])
+    univ.add_cells([fuel_cell, gap_cell, clad_cell, sodium_cell])
     return univ
 
-def guide_tube_pin(fuel_or,clad_or):
-    """Returns a control rod guide tube universe."""
-    # Define surfaces
-    fuel_or = openmc.ZCylinder(r=fuel_or, name='Fuel OR')
-    clad_or = openmc.ZCylinder(r=clad_or, name='Clad OR')
-
-    gt_inner_cell = openmc.Cell(fill=sodium, region=-fuel_or)
-    gt_clad_cell = openmc.Cell(fill=clad, region=+fuel_or & -clad_or)
-    gt_outer_cell = openmc.Cell(fill=sodium, region=+clad_or)
-
-    univ = openmc.Universe(name='Guide Tube')
-    univ.add_cells([gt_inner_cell, gt_clad_cell, gt_outer_cell])
-    return univ
 
 def lattice_model(
         pitch=21.42,
@@ -135,7 +130,6 @@ def lattice_model(
     fuel_zone4 = create_spent_fuel()
 
     # Create fuel pin universes for each ring
-    center_pin = guide_tube_pin(fuel_radius,clad_radius)
     fuel_pin_zone1 = fuel_pin(fuel_zone1,fuel_radius,clad_radius)
     fuel_pin_zone2 = fuel_pin(fuel_zone2,fuel_radius,clad_radius)
     fuel_pin_zone3 = fuel_pin(fuel_zone3,fuel_radius,clad_radius)
@@ -148,14 +142,13 @@ def lattice_model(
     
     # Define the lattice pattern
     ring8 = [fuel_pin_zone4] * 42
-    ring7 = [fuel_pin_zone4] * 36
+    ring7 = [fuel_pin_zone3] * 36
     ring6 = [fuel_pin_zone3] * 30
-    ring5 = [fuel_pin_zone3] * 24
+    ring5 = [fuel_pin_zone2] * 24
     ring4 = [fuel_pin_zone2] * 18
     ring3 = [fuel_pin_zone2] * 12
     ring2 = [fuel_pin_zone1] * 6
-    # ring1 = [fuel_pin_zone1]
-    ring1 = [center_pin]
+    ring1 = [fuel_pin_zone1]
     
     # Combine all rings
     lattice.universes = [ring8, ring7, ring6, ring5, ring4, ring3, ring2, ring1]
@@ -323,15 +316,12 @@ def analyze_results(mesh_dimension=[100, 100], n_annuli=20, verbose=1):
     if verbose:
         print("--------------output for optimization------------------")
         print(f"k_eff: {keff.n:.5f} ± {1e5 * keff.s:.0f} [pcm]")
-        # print(f"k_eff from fission rate: {results['total_neutron_from_fission_rate']:.5f} ± {1e5 *results['total_neutron_from_fission_std_dev']:.0f} [pcm]")
         print(f"Total fission heating rate: {results['total_heating_rate']:.2e} [eV/source]")
-        #print(f"Total capture rate of Fertile Material: {results['total_capture_fertile']:.2e} [n_captures/source]")
-        #print(f"Total capture rate of Fissile Material: {results['total_capture_fissile']:.2e} [n_captures/source]")
         print(f"Peaking factor: {peaking_factor:.3f}")
         print("--------------output for optimization------------------")
         print("")
 
-    return keff, peaking_factor, results["total_heating_rate"] #results["total_capture_fertile"], results["total_capture_fissile"]
+    return keff, peaking_factor, results["total_heating_rate"]
 
 def plot_lattice(reactor_diameter=100.0):
     """Plot an XY view of the hexagonal lattice lattice."""
