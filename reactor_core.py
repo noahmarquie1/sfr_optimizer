@@ -11,10 +11,11 @@ if __name__ == '__main__':
     # ============Fixed parameters ========
 
     # ============Variable parameters ========
-    fuel_radius = 2.0 # cm
-    clad_thickness = 0.06 # cm
-    min_dist_pin2pin = 0.4 # cm
-    reflector_thickness = 10.0 # cm
+    fuel_radius = 2.0 #
+    clad_thickness = 0.06
+    pin_margin = 0.4
+    reflector_thickness = 10.0
+    gap_thickness = 0.001
 
     enrichment_ring1 = 10.0 # %
     enrichment_ring2 = 10.0 # %
@@ -22,8 +23,8 @@ if __name__ == '__main__':
     # ============Variable parameters ========
 
     # ============Derived parameters ========
-    clad_radius = fuel_radius + clad_thickness
-    pitch = 2*clad_radius + min_dist_pin2pin
+    clad_radius = fuel_radius + clad_thickness + gap_thickness
+    pitch = 2*clad_radius + pin_margin
 
     # verify the reactor diameter is greater than 2*n_rings*pitch + 2*reflector_thickness
     if reactor_diameter < 2*n_rings*pitch + 2*reflector_thickness:
@@ -55,6 +56,7 @@ if __name__ == '__main__':
             pitch,
             fuel_radius,
             clad_radius,
+            gap_thickness,
             reactor_diameter,
             reflector_thickness,
             enrichment_ring1,

@@ -10,6 +10,8 @@ import os
 import numpy as np
 import openmc
 import matplotlib.pyplot as plt
+from contextlib import redirect_stdout
+from io import StringIO
 
 # Add this new function to remove XML files
 def remove_xml_files():
@@ -92,11 +94,11 @@ helium.set_density("g/cm3", 0.0001785)  # Density at typical reactor conditions
 
 
 
-def fuel_pin(fuel_material,fuel_or,clad_or):
+def fuel_pin(fuel_material,fuel_or,clad_or,gap_or):
 # Define surfaces
     fuel_or = openmc.ZCylinder(r=fuel_or, name='Fuel OR')
     clad_or = openmc.ZCylinder(r=clad_or, name='Clad OR')
-    gap_or = openmc.ZCylinder(r=0.01, name='Gap OR')
+    gap_or = openmc.ZCylinder(r=gap_or, name='Gap OR')
 
     """Returns a fuel pin universe with specified fuel material."""
     fuel_cell = openmc.Cell(fill=fuel_material, region=-fuel_or)
@@ -113,6 +115,7 @@ def lattice_model(
         pitch=21.42,
         fuel_radius=0.39218,
         clad_radius=0.45720,
+        gap_thickness=0.001,
         reactor_diameter=100.0,
         reflector_thickness=5.0,
         enrichment_zone1=5.0,
@@ -130,10 +133,10 @@ def lattice_model(
     fuel_zone4 = create_spent_fuel()
 
     # Create fuel pin universes for each ring
-    fuel_pin_zone1 = fuel_pin(fuel_zone1,fuel_radius,clad_radius)
-    fuel_pin_zone2 = fuel_pin(fuel_zone2,fuel_radius,clad_radius)
-    fuel_pin_zone3 = fuel_pin(fuel_zone3,fuel_radius,clad_radius)
-    fuel_pin_zone4 = fuel_pin(fuel_zone4,fuel_radius,clad_radius)
+    fuel_pin_zone1 = fuel_pin(fuel_zone1,fuel_radius,clad_radius,gap_thickness)
+    fuel_pin_zone2 = fuel_pin(fuel_zone2,fuel_radius,clad_radius,gap_thickness)
+    fuel_pin_zone3 = fuel_pin(fuel_zone3,fuel_radius,clad_radius,gap_thickness)
+    fuel_pin_zone4 = fuel_pin(fuel_zone4,fuel_radius,clad_radius,gap_thickness)
 
     # Create fuel lattice
     lattice = openmc.HexLattice(name='Fuel lattice')
@@ -234,8 +237,6 @@ def analyze_heating_and_capture_rates(sp, mesh_dimension=[100, 100]):
 
     results = {
         "total_heating_rate": tot_heating_rate,
-        #"total_capture_fertile": tot_capture_fertile,
-        #"total_capture_fissile": tot_capture_fissile,
     }
     
     return results
@@ -323,11 +324,11 @@ def analyze_results(mesh_dimension=[100, 100], n_annuli=20, verbose=1):
 
     return keff, peaking_factor, results["total_heating_rate"]
 
-def plot_lattice(reactor_diameter=100.0):
+def plot_lattice(reactor_diameter=100.0, show=True, path_xy='plot_xy', path_yz='plot_yz'):
     """Plot an XY view of the hexagonal lattice lattice."""
 
     plot_xy = openmc.Plot(plot_id=1)
-    plot_xy.filename = 'plot_xy'
+    plot_xy.filename = path_xy
     plot_xy.basis = 'xy'
     plot_xy.origin = [0, 0, 0]
     plot_xy.width = [reactor_diameter, reactor_diameter]
@@ -341,7 +342,7 @@ def plot_lattice(reactor_diameter=100.0):
     plot_xy.background = 'white'  # Add white background for better visibility
 
     plot_yz = openmc.Plot(plot_id=2)
-    plot_yz.filename = 'plot_yz'
+    plot_yz.filename = path_yz
     plot_yz.basis = 'yz'
     plot_yz.origin = [0, 0, 0]
     plot_yz.width = [reactor_diameter, reactor_diameter]
@@ -362,9 +363,67 @@ def plot_lattice(reactor_diameter=100.0):
     openmc.plot_geometry()
     
     # Load and display the plot
-    img = plt.imread('plot_xy.png')
+    if show:
+        img = plt.imread(path_xy + '.png')
+        plt.figure(figsize=(10, 10))
+        plt.imshow(img)
+        plt.axis('off')
+        plt.title('Lead cooled Hexagonal lattice XY View')
+        plt.show()
+
+
+def print_all_plots(path, iteration):
+
+    print("hello")
+    sp = openmc.StatePoint('statepoint.150.h5')
+
+    plot_xy = openmc.Plot(plot_id=1)
+    plot_xy.filename = path + f"/plot_xy/plot_xy_{iteration}"
+    plot_xy.basis = 'xy'
+    plot_xy.origin = [0, 0, 0]
+    plot_xy.width = [100, 100]
+    plot_xy.pixels = [1000, 1000]
+    plot_xy.color_by = 'material'
+    plot_xy.colors = {
+        # fuel: 'red',
+        clad: 'blue',
+        sodium: 'yellow'
+    }
+    plot_xy.background = 'white'  # Add white background for better visibility
+
+    plot_yz = openmc.Plot(plot_id=2)
+    plot_yz.filename = path + f"/plot_yz/plot_yz_{iteration}"
+    plot_yz.basis = 'yz'
+    plot_yz.origin = [0, 0, 0]
+    plot_yz.width = [100, 100]
+    plot_yz.pixels = [1000, 1000]
+    plot_yz.color_by = 'material'
+    plot_yz.colors = {
+        # fuel: 'red',
+        clad: 'blue',
+        sodium: 'yellow'
+    }
+    # plot_xz.background = 'white'  # Add white background for better visibility
+
+    # Create and export the plot
+    f = StringIO()
+    with redirect_stdout(f):
+        plot_file = openmc.Plots([plot_xy, plot_yz])
+        plot_file.export_to_xml()
+        openmc.plot_geometry()
+
+    fission_tally = sp.get_tally(name='fission')
+
+    heating_rates = fission_tally.get_values(scores=['fission-q-recoverable'])
+
+    # Reshape array to 2D for plotting
+    heating_rates = heating_rates.reshape(200, 200)
+
+    tot_heating_rate = np.sum(heating_rates)
+    # plot the normalized fission number distribution
     plt.figure(figsize=(10, 10))
-    plt.imshow(img)
-    plt.axis('off')
-    plt.title('Lead cooled Hexagonal lattice XY View')
-    plt.show()
+    plt.imshow(heating_rates, cmap='viridis')
+    plt.colorbar(label='Fission heating rate [eV/source]')
+    plt.title('Fission heating rate')
+    plt.savefig(path + f'/fission_heating_rate/fission_heating_rate_{iteration}.png')
+    plt.close("all")

@@ -50,8 +50,13 @@ plots = {
         "type": "single",
         "scale": "regular-scale",
     },
-    "min_dist_pin2pin": {
-        "name": "Min Dist Pin2Pin (cm)",
+    "gap_thickness": {
+        "name": "Gap Thickness",
+        "type": "single",
+        "scale": "regular-scale",
+    },
+    "pin_margin": {
+        "name": "Fuel Pin Margin (cm)",
         "type": "single",
         "scale": "regular-scale",
     },

@@ -6,20 +6,23 @@ geometry = {
     "min_clad_thickness": 0.05, # Unchanging for now
 
     "min_fuel_radius": 0.65,
-    "min_min_dist_pin2pin": 0.01,
+    "min_pin_margin": 0.01,
     "min_enrichment_ring1": 2.0,
     "min_enrichment_ring2": 2.0,
     "min_enrichment_ring3": 2.0,
+    "min_gap_thickness": 0.001,
 
-    "max_min_dist_pin2pin": 0.0,
+    "max_pin_margin": 0.0,
     "max_enrichment_ring1": 19.0,
     "max_enrichment_ring2": 19.0,
     "max_enrichment_ring3": 19.0,
+    "max_gap_thickness": 0.01,
 
     # Needs a 'default_' value for all non-derived geometry parameters
     "default_fuel_radius": 1.5,         
     "default_reactor_diameter": 100.0,
-    "default_min_dist_pin2pin": 1.0,
+    "default_pin_margin": 1.0,
+    "default_gap_thickness": 0.005,
     "default_clad_thickness": 0.05,
     "default_reflector_thickness": 10.0,
     "default_enrichment_zone1": 5.0,
@@ -35,5 +38,5 @@ geometry = {
 
     "num_enrichments": 3,
 
-    "mutable_geometry": ["reflector_thickness", "fuel_radius", "clad_thickness", "min_dist_pin2pin"]
+    "mutable_geometry": ["reflector_thickness", "fuel_radius", "clad_thickness", "pin_margin", "gap_thickness"]
 }

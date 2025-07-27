@@ -41,7 +41,7 @@ class ActionNoiseCallback(BaseCallback):
 class SingleEpisodeEnv(gym.Env):
     def __init__(self, reward, reactor_sim, training_reactor_sim, plot_manager=None, training_starts=0):
         
-        self.action_space = Box(0.0, 1.0, shape=(5,), dtype=np.float32)
+        self.action_space = Box(0.0, 1.0, shape=(6,), dtype=np.float32)
         self.observation_space = Box(0.0, 10.0, shape=(3,), dtype=np.float32)
 
         self.reward = reward
@@ -190,7 +190,7 @@ class SingleEpisodeGPEnv(SingleEpisodeEnv):
                 "enrichment_ring3": enrichment_ring3, 
                 "enrichment-composite": {"enrichment_ring1": enrichment_ring1, "enrichment_ring2": enrichment_ring2, "enrichment_ring3": enrichment_ring3},
                 "fuel_radius": self.current_layout[0],
-                "min_dist_pin2pin": self.current_layout[1],
+                "pin_margin": self.current_layout[1],
                 "keff": obs[0],
                 "pkf": obs[1],
                 "reward-composite": {"Full": reward, "k_eff": keff_rew, "peaking_factor": pkf_rew, "heating_rate": heating_rate_rew},
@@ -220,12 +220,12 @@ class MultiEpisodeGPEnv(SingleEpisodeGPEnv):
             training_starts=training_starts
         )
 
-        self.action_space = Box(-1.0, 1.0, shape=(5,), dtype=np.float32)
-        self.observation_space = Box(0.0, 10.0, shape=(6,), dtype=np.float32)
-        self.current_layout = np.array([0.5, 0.5, 0.5, 0.5, 0.5], dtype=np.float32)
+        self.action_space = Box(-1.0, 1.0, shape=(6,), dtype=np.float32)
+        self.observation_space = Box(0.0, 10.0, shape=(7,), dtype=np.float32)
+        self.current_layout = np.array([0.5, 0.5, 0.5, 0.5, 0.5, 0.5], dtype=np.float32)
 
     def reset(self, seed=None, options=None):
-        self.current_layout = np.random.rand(5).astype(np.float32)
+        self.current_layout = np.random.rand(6).astype(np.float32)
         info = {}
         return np.append(self.current_layout, 0), info
 
@@ -273,7 +273,7 @@ class MultiEpisodeGPEnv(SingleEpisodeGPEnv):
             "enrichment_ring3": enrichment_ring3, 
             "enrichment-composite": {"enrichment_ring1": enrichment_ring1, "enrichment_ring2": enrichment_ring2, "enrichment_ring3": enrichment_ring3},
             "fuel_radius": self.current_layout[0],
-            "min_dist_pin2pin": self.current_layout[1],
+            "pin_margin": self.current_layout[1],
             "keff": keff,
             "pkf": pkf,
             "reward-composite": {"Full": reward, "k_eff": keff_rew, "peaking_factor": pkf_rew, "heating_rate": heating_rate_rew},

@@ -46,7 +46,8 @@ def get_reward(keff, peaking_factor, heating_rate):
 # Space Data 
 bo_space = { # (Needs all enrichments, but can be run with any combination of geometrical parameters)
     "fuel_radius": 0,
-    "min_dist_pin2pin": 0,
+    "pin_margin": 0,
+    "gap_thickness": 0,
     "enrichment_ring1": 0,
     "enrichment_ring2": 0,
     "enrichment_ring3": 0,
@@ -54,7 +55,8 @@ bo_space = { # (Needs all enrichments, but can be run with any combination of ge
 
 rl_space = { # (Can only be run with all enrichments and no geometrical parameters)
     "fuel_radius": 0,
-    "min_dist_pin2pin": 0,
+    "pin_margin": 0,
+    "gap_thickness": 0,
     "enrichment_ring1": 0,
     "enrichment_ring2": 0,
     "enrichment_ring3": 0,

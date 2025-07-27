@@ -39,10 +39,10 @@ class CSVConfigManager(ReactorSandbox):
 
 
     def create_config_array(self, num_configs, objective):
-        sampler = qmc.LatinHypercube(d=5)
+        sampler = qmc.LatinHypercube(d=6)
         initial_x = sampler.random(num_configs)
 
-        final_x = np.array([], dtype=np.float64).reshape(0, 5)
+        final_x = np.array([], dtype=np.float64).reshape(0, 6)
         y = np.array([], dtype=np.float64).reshape(0, 3)
 
         self.update_current_x()
@@ -85,7 +85,7 @@ class CSVConfigManager(ReactorSandbox):
             df = pd.DataFrame(np.array([]).reshape(0, 8))
             df.to_csv(self.csv_path, header=True, index=False)
             self.current_x = pd.read_csv(self.csv_path, index_col=0, dtype=np.float64)
-        self.current_x = self.current_x.to_numpy(dtype=np.float64)[:, :5] if not self.current_x.empty else np.array([]).reshape(0, 5)
+        self.current_x = self.current_x.to_numpy(dtype=np.float64)[:, :6] if not self.current_x.empty else np.array([]).reshape(0, 6)
 
 
     def create_configs(self, num_configs, objective, mode="w"):
@@ -98,8 +98,8 @@ class CSVConfigManager(ReactorSandbox):
         if df.empty:
             print("CSV is empty")
             return
-        x = df.to_numpy()[:, :5]
-        y = df.to_numpy()[:, 5:]
+        x = df.to_numpy()[:, :6]
+        y = df.to_numpy()[:, 6:]
 
         x = torch.from_numpy(x)
         y = torch.from_numpy(y)

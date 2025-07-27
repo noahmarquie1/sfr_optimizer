@@ -1,5 +1,5 @@
 # Imports
-from reactor_setup import lattice_model, analyze_results
+from reactor_setup import lattice_model, analyze_results, print_all_plots
 from helpers.geometry_data import geometry
 
 from io import StringIO
@@ -30,7 +30,8 @@ class ReactorSandbox:
             "fuel_radius": 1.64, #TEMPORARY RL EXPERIMENTATION geometry["default_fuel_radius"],
             "clad_radius": 0.45720,
             "reactor_diameter": 100.0,
-            "min_dist_pin2pin": geometry["default_min_dist_pin2pin"],
+            "pin_margin": geometry["default_pin_margin"],
+            "gap_thickness": geometry["default_gap_thickness"],
             "clad_thickness": geometry["default_clad_thickness"],
             "reflector_thickness": geometry["default_reflector_thickness"],
             "enrichment_zone1": geometry["default_enrichment_zone1"],
@@ -44,60 +45,10 @@ class ReactorSandbox:
 
 
     def check_candidate_viability(self, candidate):
-        """
-        Takes in a dict of geometry components, and returns whether it is feasible physically in simulation
-
-        Parameters
-        ----------
-        candidate: Dict of geometry components
-        
-        Returns
-        -------
-        Boolean - if candidate is physically viable
-
-        Side Effects
-        ------------
-        None
-
-        Calls
-        -----
-        None
-
-        Called By
-        ---------
-        find_candidate_start()
-        find_candidate_training()
-        """
-
         viable = candidate["reactor_diameter"] >= 2*geometry["n_rings"]*candidate["pitch"] + 2*candidate["reflector_thickness"]
         return viable 
 
     def space_to_geometry(self, candidate):
-        """
-        Takes in a normalized space and returns a dictionary of corresponding de-normalized values plus additional geometry components
-
-        Parameters
-        ----------
-        candidate: Tensor of size (1, num dims in self.space), normalized, input to model
-        
-        Returns
-        -------
-        dict of denormalized values of all components in self.space plus additional geometry components
-
-        Side Effects
-        ------------
-        None
-
-        Calls
-        -----
-        self.denormalize_params()
-
-        Called By
-        ---------
-        find_candidate_start()
-        find_candidate_training()
-        """
-
         candidate_geometry = self.denormalize_params(candidate)
 
         # Fixing default values
@@ -107,8 +58,8 @@ class ReactorSandbox:
                 candidate_geometry[key] = geometry[f"default_{key}"]
 
         # Fixing derived params
-        candidate_geometry["clad_radius"] = candidate_geometry["fuel_radius"] + candidate_geometry["clad_thickness"]
-        candidate_geometry["pitch"] = 2*candidate_geometry["clad_radius"] + candidate_geometry["min_dist_pin2pin"]
+        candidate_geometry["clad_radius"] = candidate_geometry["fuel_radius"] + candidate_geometry["gap_thickness"] + candidate_geometry["clad_thickness"]
+        candidate_geometry["pitch"] = 2*candidate_geometry["clad_radius"] + candidate_geometry["pin_margin"]
 
         # Fixing remaining parameters
         for key, value in self.current_geometry.items():
@@ -118,116 +69,37 @@ class ReactorSandbox:
         return candidate_geometry
 
     def denormalize_params(self, x):
-        """
-        Takes in a normalized space and returns denormalized dict ready for OpenMC model.
 
-        Parameters
-        ----------
-        x: Tensor of size (6,), normalized, input to model. Assumes: 
-         - [Fuel Radius, Min Dist Pin2Pin, Enrichment Ring1, Enrichment Ring2, Enrichment Ring3, Enrichment Ring4]
-        
-        Returns
-        -------
-        dict of denormalized values of all components in self.space 
-         + additional components:
-         2) reflector thickness
-         3) clad thickness
-
-        Side Effects
-        ------------
-        None
-
-        Calls
-        -----
-        None
-
-        Called By
-        ---------
-        self.space_to_geometry()
-        self.minimal_model_run()
-        self.training_model_run()
-        self.eval_model_run()
-        """
-        # Convert x to list
         x = x.tolist()
-
-        # Set Initial Bounds
-        n_rods = 2*(geometry["n_rings"] - 1)
-        geometry["max_fuel_radius"] = (geometry["reactor_diameter"] - 2*(n_rods)*geometry["clad_thickness"] - 2*geometry["reflector_thickness"] - (n_rods - 1)*geometry["min_min_dist_pin2pin"]) / (2*n_rods)
-
         denormalized_space = {}
+        n_rods = 2*(geometry["n_rings"])
 
-        denormalized_space["fuel_radius"] = x[0] * (geometry[f"max_fuel_radius"] - geometry[f"min_fuel_radius"]) + geometry[f"min_fuel_radius"]
-        max_min_dist_pin2pin = (geometry["reactor_diameter"] - 2*n_rods*geometry["clad_thickness"] - 2*n_rods*denormalized_space["fuel_radius"] - 2*geometry["reflector_thickness"]) / (n_rods - 1)
+        max_fuel_radius = ((geometry["reactor_diameter"] - 2*geometry["reflector_thickness"]) / (2 * n_rods)) - geometry["min_pin_margin"] - geometry["min_gap_thickness"]
+        denormalized_space["fuel_radius"] = x[0] * (max_fuel_radius - geometry["min_fuel_radius"]) + geometry["min_fuel_radius"]
 
-        denormalized_space["min_dist_pin2pin"] = x[1] * (geometry[f"max_min_dist_pin2pin"] - geometry[f"min_min_dist_pin2pin"]) + geometry[f"min_min_dist_pin2pin"]
-        
-        for i in range(3):
-            denormalized_space[f"enrichment_ring{i+1}"] = x[i+2] * (geometry[f"max_enrichment_ring{i+1}"] - geometry[f"min_enrichment_ring{i+1}"]) + geometry[f"min_enrichment_ring{i+1}"]
+        max_pin_margin = ((geometry["reactor_diameter"] - 2 * geometry["reflector_thickness"]) / (2 * n_rods)) - denormalized_space["fuel_radius"] - geometry["min_gap_thickness"]
+        denormalized_space["pin_margin"] = x[1] * (max_pin_margin - geometry["min_pin_margin"]) + geometry["min_pin_margin"]
+
+        max_gap_thickness = ((geometry["reactor_diameter"] - 2 * geometry["reflector_thickness"]) / (2 * n_rods)) - denormalized_space["fuel_radius"] - denormalized_space["pin_margin"]
+        denormalized_space["gap_thickness"] = x[2] * (max_gap_thickness - geometry["min_gap_thickness"]) + geometry["min_gap_thickness"]
+
+        for i in range(3, 6):
+            denormalized_space[f"enrichment_ring{i-2}"] = x[i] * (geometry[f"max_enrichment_ring{i-2}"] - geometry[f"min_enrichment_ring{i-2}"]) + geometry[f"min_enrichment_ring{i-2}"]
 
         denormalized_space["reflector_thickness"] = geometry["reflector_thickness"]
         denormalized_space["clad_thickness"] = geometry["clad_thickness"]
         return denormalized_space
 
     def normalize(self, denormalized_val, min_val, max_val):
-        """
-        Normalizes value according to a min and max. Should push values between 0 and 1 for model processing
-
-        Parameters
-        ----------
-        denormalized_val: float, value to be normalized
-        min_val: float
-        max_val: float
-        
-        Returns
-        -------
-        float: normalized value
-
-        Side Effects
-        ------------
-        None
-
-        Calls
-        -----
-        None
-
-        Called By
-        ---------
-        OptimizerBO.find_candidate_start()
-        OptimizerBO.find_candidate_training()
-        """
-
         return (denormalized_val - min_val) / (max_val - min_val)
 
     def lattice_model(self):
-        """
-        Defines an OpenMC lattice model according to ReactorSandbox internal state (self.current_geometry)
-
-        Parameters
-        ----------
-        self
-        
-        Returns
-        -------
-        model: lattice_model() - OpenMC
-
-        Side Effects
-        ------------
-        None
-
-        Calls
-        -----
-        None
-
-        Called By
-        ---------
-        self.minimal_model_run()
-        """
 
         model = lattice_model(
             pitch=self.current_geometry["pitch"], 
             fuel_radius=self.current_geometry["fuel_radius"], 
-            clad_radius=self.current_geometry["clad_radius"], 
+            clad_radius=self.current_geometry["clad_radius"],
+            gap_thickness=self.current_geometry["gap_thickness"],
             reactor_diameter=self.current_geometry["reactor_diameter"], 
             reflector_thickness=self.current_geometry["reflector_thickness"], 
             enrichment_zone1=self.current_geometry["enrichment_ring1"], 
@@ -238,32 +110,6 @@ class ReactorSandbox:
         return model
 
     def minimal_model_run(self, x, verbose=0):
-        """
-        Runs openmc simulation with minimal extra output and provides result - Hopes to maximize time efficiency
-
-        Parameters
-        ----------
-        x: Tensor of size (1, num dims in self.space), normalized, input to model
-        verbose: Boolean, affects printing and plot creation
-        
-        Returns
-        -------
-        dict of model output
-
-        Side Effects
-        ------------
-        self.current_geometry
-
-        Calls
-        -----
-        self.denormalize_params()
-        analyze_results() - helpers.reactor_methods
-
-        Called By
-        ---------
-        self.training_model_run()
-        self.eval_model_run()
-        """
 
         # Define Parameters from x and Define Model
         denormalized_params = self.denormalize_params(x)
@@ -274,8 +120,8 @@ class ReactorSandbox:
         for i in range(geometry["num_enrichments"]):
             self.current_geometry[f"enrichment_ring{i+1}"] = denormalized_params[f"enrichment_ring{i+1}"]
 
-        self.current_geometry["clad_radius"] = denormalized_params["fuel_radius"] + geometry["clad_thickness"]
-        self.current_geometry["pitch"] = 2*self.current_geometry["clad_radius"] + denormalized_params["min_dist_pin2pin"]
+        self.current_geometry["clad_radius"] = denormalized_params["fuel_radius"] + denormalized_params["gap_thickness"] + geometry["clad_thickness"]
+        self.current_geometry["pitch"] = 2*self.current_geometry["clad_radius"] + denormalized_params["pin_margin"]
 
         lattice_model = self.lattice_model()
 
@@ -302,40 +148,6 @@ class ReactorSandbox:
             run_type="TRAINING",
             iteration=0
         ):
-        """
-        Layers on minimal model run to run openmc model with more terminal feedback about training, returning additional loss information
-
-        Parameters
-        ----------
-        x: List of length=(num dims in self.space), normalized, input to model
-        loss: Function of type (float, float, float, float) -> float - used to measure model 
-        plot_manager: PlotManager class instance
-        run_type: String
-        iteration: int
-        
-        Returns
-        -------
-        dict of model output + loss with components
-
-        Side Effects
-        ------------
-        plot_manager
-        self.current_geometry - via minimal_model_run
-
-        Calls
-        -----
-        self.minimal_model_run()
-        plot_manager.add()
-        self.denormalize_params()     
-
-        analyze_results() - helpers.reactor_methods : via minimal_model_run
-
-        Called By
-        ---------
-        OptimizerBO.write_starts()
-        OptimizerBO.run_start()
-        OptimizerBO.run_epoch()
-        """
 
         denormalized_params = self.denormalize_params(x)
         enrichments = [denormalized_params[f"enrichment_ring{i}"] for i in range(1, 4)]
@@ -373,7 +185,8 @@ class ReactorSandbox:
                 "heating_rate": info["heating_rate"],
                 "enrichment-composite": {"enrichment_ring1": enrichments[0], "enrichment_ring2": enrichments[1], "enrichment_ring3": enrichments[2]},
                 "fuel_radius": denormalized_params["fuel_radius"],
-                "min_dist_pin2pin": denormalized_params["min_dist_pin2pin"],
+                "pin_margin": denormalized_params["pin_margin"],
+                "gap_thickness": denormalized_params["gap_thickness"],
                 "reward-composite": {"Full": reward_value, "k_eff": keff_term, "peaking_factor": peak_term, "heating_rate": heating_rate_term},
             }
 
@@ -430,7 +243,8 @@ class ReactorSandbox:
         results_text += "Best parameters found:\n\n"
 
         results_text += f"Fuel radius: {denormalized_params['fuel_radius']:.2f}cm\n"
-        results_text += f"Min Dist Pin2Pin: {denormalized_params['min_dist_pin2pin']:.2f}cm\n"
+        results_text += f"Pin Margin: {denormalized_params['pin_margin']:.2f}cm\n"
+        results_text += f"Gap Thickness: {denormalized_params['gap_thickness']:.2f}cm\n"
 
         results_text += f"Enrichment ring 1: {enrichments[0]:.2f}%\n"
         results_text += f"Enrichment ring 2: {enrichments[1]:.2f}%\n"

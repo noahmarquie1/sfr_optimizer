@@ -14,6 +14,8 @@ from gpytorch.kernels import MaternKernel
 from gpytorch.priors import GammaPrior
 from gpytorch.mlls import ExactMarginalLogLikelihood
 
+from reactor_setup import plot_lattice, print_all_plots
+
 import torch
 import time
 
@@ -39,27 +41,11 @@ class OptimizerBO(ReactorSandbox):
             "output_BO/media/fission_heating_rate",
             "output_BO/media/plot_xy",
             "output_BO/media/plot_yz",
-            "output_BO/media/radial_heating_distribution",
         ]
-        self.set_initial_bounds()
 
         self.acq = None
         self.covar_module = MaternKernel(nu=2.5, lengthscale_prior=GammaPrior(3.0, 6.0))
         self.bounds = torch.tensor([[0] * len(self.space.keys()), [1] * len(self.space.keys())], dtype=torch.float64)
-
-    def set_initial_bounds(self):
-        starting_params = {}
-        for dim in geometry["mutable_geometry"]:
-            if not dim in self.space.keys():
-                starting_params[dim] = geometry[f"default_{dim}"]
-            else:
-                starting_params[dim] = geometry[f"min_{dim}"]
-        
-        n_rods = 2*geometry["n_rings"]-1
-        geometry["max_reflector_thickness"] = (geometry["reactor_diameter"] - 2*n_rods*starting_params["fuel_radius"] - (n_rods - 1)*starting_params["min_dist_pin2pin"] - 2*n_rods*starting_params["clad_thickness"]) / 2
-        geometry["max_clad_thickness"] = (geometry["reactor_diameter"] - 2*n_rods*starting_params["fuel_radius"] - 2*starting_params["reflector_thickness"] - (n_rods - 1)*starting_params["min_dist_pin2pin"]) / (2*n_rods)
-        geometry["max_min_dist_pin2pin"] = (geometry["reactor_diameter"] - 2*n_rods*starting_params["clad_thickness"] - 2*n_rods*starting_params["fuel_radius"] - 2*starting_params["reflector_thickness"]) / (n_rods - 1)
-        geometry["max_fuel_radius"] = (geometry["reactor_diameter"] - 2*(n_rods)*starting_params["clad_thickness"] - 2*starting_params["reflector_thickness"] - (n_rods - 1)*starting_params["min_dist_pin2pin"]) / (2*n_rods)
 
     def choose_gp_candidate(self):
         next_x, _ = optimize_acqf(
@@ -86,16 +72,7 @@ class OptimizerBO(ReactorSandbox):
         mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
         fit_gpytorch_mll(mll)
 
-        #y_flat = self.train_y.squeeze(-1)
-        #topk = torch.topk(y_flat, 5)
-        #top5_indices = topk.indices
-        #best_x_tensor = self.train_x[top5_indices]
-
         self.acq = UpperConfidenceBound(gp, beta=beta)
-        #self.acq = LogExpectedImprovement(model=gp, best_f=self.train_y.max())
-        #self.acq = ProbabilityOfImprovement(model=gp, best_f=self.train_y.max())
-        #self.acq = qKnowledgeGradient(model=gp, num_fantasies=12)
-        #self.acq = NoisyExpectedImprovement(model=gp, X_observed=best_x_tensor, num_fantasies=64)
 
         next_x = self.choose_gp_candidate()
         run_type="TRAINING"
@@ -141,10 +118,10 @@ class OptimizerBO(ReactorSandbox):
         for i in range(iteration, epochs):
             beta = beta_schedule(i - iteration, epochs - iteration, beta_start, beta_end)
             self.run_epoch(i+1, beta, plot_manager)
-        #    if make_vids:
-        #        plot_reactor(i, mesh_dimension=self.mesh_dimension, path="output_BO/media")
+            if make_vids:
+                print_all_plots("output_BO/media", i)
 
-        #create_all_videos(self.vid_dirs)
+        create_all_videos(self.vid_dirs)
         self.eval_model_run(self.get_results()[0], self.reward, self.output_dir, start_time)
     
     def get_results(self):
