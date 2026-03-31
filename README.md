@@ -27,6 +27,8 @@ tools for Transmutex’s proprietary thorium-based, lead-cooled fast reactor
 design. **Note on IP:** the work presented here does not contain any proprietary information or inventions
 owned by Transmutex S.A. 
 
+<div style="clear: both;"></div>
+
 Included here are two of the most effective approaches I implemented:
 
 * Bayesian Optimization using BoTorch, a scalable, flexible framework built on PyTorch for sample-efficient black-box 
@@ -44,6 +46,8 @@ applied to an industry-standard uranium-based fast reactor model.
 - ✅ [Interactive CLI for Sandbox and Optimizers]
 - 📊 [Visualized Results]
 - 🐳 [Containerized with Docker]
+
+<img src="fission_rates.gif" width="25%" height="25%" alt="Preview">
 
 ---
 

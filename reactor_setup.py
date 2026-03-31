@@ -373,8 +373,6 @@ def plot_lattice(reactor_diameter=100.0, show=True, path_xy='plot_xy', path_yz='
 
 
 def print_all_plots(path, iteration):
-
-    print("hello")
     sp = openmc.StatePoint('statepoint.150.h5')
 
     plot_xy = openmc.Plot(plot_id=1)
